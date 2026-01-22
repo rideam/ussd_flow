@@ -1,12 +1,15 @@
 from ussd.store.journey_store import JourneyStore
 import os
 import yaml
-from jinja2 import Template, Environment
-from configure import Configuration
-from ussd import utilities
+from jinja2 import Template
 from yaml.constructor import ConstructorError
 import staticconf
 from shutil import rmtree
+
+
+class IncludeLoader(yaml.SafeLoader):
+    """Custom YAML loader that supports !include tags."""
+    pass
 
 
 def extract_file(file_name, parent_file_path):
@@ -25,7 +28,7 @@ def extract_file(file_name, parent_file_path):
             raise FileNotFoundError(file_name)
 
     with open(file_path, 'r') as f:
-        return yaml.load(f)
+        return yaml.load(f, Loader=IncludeLoader)
 
 
 def include(loader, node):
@@ -36,7 +39,7 @@ def include(loader, node):
         data = {}
         for filename in loader.construct_sequence(node):
             file_path = Template(filename).render(os.environ)
-            data.update(extract_file(os.path.abspath(file_path)))
+            data.update(extract_file(os.path.abspath(file_path), node.start_mark.name))
 
         return data
 
@@ -44,13 +47,15 @@ def include(loader, node):
         raise ConstructorError("Error:: unrecognised node type in !include statement")
 
 
+# Register the !include constructor with our custom loader
+IncludeLoader.add_multi_constructor('!include', include)
+
+
 def load_dict_from_yaml(file_path) -> dict:
     file_path = Template(file_path).render(os.environ)
-    return Configuration.from_file(
-        os.path.abspath(file_path),
-        multi_constructors={'!include': include},
-        configure=False
-    )
+    abs_path = os.path.abspath(file_path)
+    with open(abs_path, 'r') as f:
+        return yaml.load(f, Loader=IncludeLoader)
 
 
 def load_yaml(file_path) -> dict:

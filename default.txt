@@ -7,6 +7,5 @@ PyYAML>=6.0
 PyStaticConfiguration>=0.10.2
 requests>=2.31.0
 celery>=5.5.0
-PyConfigure>=0.5.9
 attrs>=22.2.0
 marshmallow>=3.20.2
